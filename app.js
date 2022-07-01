@@ -1,156 +1,99 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const bcrypt = require("bcryptjs");
-
-const jwt = require('jsonwebtoken');
 const app = express();
-const auth = require("./middleware/auth");
-const executeOperationsDB = require('./oracleDbConn')
-const accessTokenSecret = 'somerandomaccesstoken';
-const refreshTokenSecret = 'somerandomstringforrefreshtoken';
-
-const users = async function (mail) {
-    let st = "SELECT user_id,password FROM USERS WHERE email = :email";
-    let stArg = [mail];
-    let DataRes = await executeOperationsDB(st, stArg, 'get')
-    let dataJson = JSON.parse(DataRes);
-    // if(DataRes[0].USER_ID){
-    //     // console.log("*** *" + DataRes)
-    //     //  let dataJson = JSON.parse(DataRes);
-    // //    console.log(dataJson)
-    //    return dataJson;
-    // }
-    // console.log("***///////////////////////////////////")
-   return dataJson
-}
-
-
-let refreshTokens = [];
+const [users, registeration, updateUsers, deleteUsers, usersByKey] = require('./users');
+const [members, membersByKey, insertMember, updateMember, deleteMembers] = require('./members');
+const [membersTypes, membersTypesByKey, insertMembersTypes, updateMembersTypes, deleteMembersTypes] = require('./membersTypes');
+const [membersGroups, membersGroupsByKey, insertMembersGroups, updateMembersGroups, deleteMembersGroups] = require('./membersGroups');
+const [documentsTypes, documentsTypesByKey, insertDocumentsTypes, updateDocumentsTypes, deleteDocumentsTypes] = require('./documentsTypes');
+const [universities, universitiesByKey, insertUniversities, updateUniversities, deleteUniversities] = require('./universities')
+const [authenticateJWT, Token, login, logout] = require('./authentication');
+const [cities, citiesByKey, insertCities, updateCities, deleteCities] = require('./cities')
+const [preferencesLookups, preferencesLookupsByKey, insertPreferencesLookups, updatePreferencesLookups, deletePreferencesLookups] = require('./preferencesLookups')
+const [documents, documentsByKey, insertDocuments, updateDocuments, deleteDocuments] = require('./documents')
+const [faculties, facultiesByKey, insertfaculties, updatefaculties, deletefaculties] = require('./faculties')
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ type: '*/*' }));
+const router = express.Router();
+router.use(function (request, response, next) {
+  //   console.log("REQUEST:" + request.method + "   " + request.url);
+  //   console.log("BODY:" + JSON.stringify(request.body));
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  response.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+  response.setHeader('Access-Control-Allow-Credentials', true);
+  next();
+});
 app.use(bodyParser.json());
+//users
+router.route('/token').post(Token);
+router.route('/logout').post(logout);
+router.route('/users/').get(authenticateJWT, users);
+router.route('/users/:Email').get(authenticateJWT, usersByKey);
+router.route("/users/register").post(registeration);
+router.route("/users/update").post(authenticateJWT, updateUsers);
+router.route("/users/delete").delete(authenticateJWT, deleteUsers);
+router.route("/login").post(login);
+//members 
+router.route('/members/').get(authenticateJWT, members);
+router.route('/members/:MemberCodePk').get(authenticateJWT, membersByKey);
+router.route("/members/insert").post(authenticateJWT, insertMember);
+router.route("/members/update").post(authenticateJWT, updateMember);
+router.route("/members/delete").delete(authenticateJWT, deleteMembers);
+//membersTypes 
+router.route('/membersTypes/').get(authenticateJWT, membersTypes);
+router.route('/membersTypes/:MemberTypePk').get(authenticateJWT, membersTypesByKey);
+router.route("/membersTypes/insert").post(authenticateJWT, insertMembersTypes);
+router.route("/membersTypes/update").post(authenticateJWT, updateMembersTypes);
+router.route("/membersTypes/delete").delete(authenticateJWT, deleteMembersTypes);
 
-const authenticateJWT = (req, res, next) => {
-    const authHeader = req.headers.authorization;
+//membersGroups
+router.route('/membersGroups/').get(authenticateJWT, membersGroups);
+router.route('/membersGroups/:MemberGroupPk').get(authenticateJWT, membersGroupsByKey);
+router.route("/membersGroups/insert").post(authenticateJWT, insertMembersGroups);
+router.route("/membersGroups/update").post(authenticateJWT, updateMembersGroups);
+router.route("/membersGroups/delete").delete(authenticateJWT, deleteMembersGroups);
 
-    if (authHeader) {
-        const token = authHeader.split(' ')[1];
+//documentsTypes
+router.route('/documentsTypes/').get(authenticateJWT, documentsTypes);
+router.route('/documentsTypes/:DocTypeCodePk').get(authenticateJWT, documentsTypesByKey);
+router.route("/documentsTypes/insert").post(authenticateJWT, insertDocumentsTypes);
+router.route("/documentsTypes/update").post(authenticateJWT, updateDocumentsTypes);
+router.route("/documentsTypes/delete").delete(authenticateJWT, deleteDocumentsTypes);
+//universities
+router.route('/universities/').get(authenticateJWT, universities);
+router.route('/universities/:UniversityCodePk').get(authenticateJWT, universitiesByKey);
+router.route("/universities/insert").post(authenticateJWT, insertUniversities);
+router.route("/universities/update").post(authenticateJWT, updateUniversities);
+router.route("/universities/delete").delete(authenticateJWT, deleteUniversities);
+//cities
+router.route('/cities/').get(authenticateJWT, cities);
+router.route('/cities/:CityCodePk').get(authenticateJWT, citiesByKey);
+router.route("/cities/insert").post(authenticateJWT, insertCities);
+router.route("/cities/update").post(authenticateJWT, updateCities);
+router.route("/cities/delete").delete(authenticateJWT, deleteCities);
+//preferencesLookups
+router.route('/preferencesLookups/').get(authenticateJWT, preferencesLookups);
+router.route('/preferencesLookups/:PrefCodePk').get(authenticateJWT, preferencesLookupsByKey);
+router.route("/preferencesLookups/insert").post(authenticateJWT, insertPreferencesLookups);
+router.route("/preferencesLookups/update").post(authenticateJWT, updatePreferencesLookups);
+router.route("/preferencesLookups/delete").delete(authenticateJWT, deletePreferencesLookups);
 
-        jwt.verify(token, accessTokenSecret, (err, user) => {
-            if (err) {
-                return res.sendStatus(403);
-            }
+//documents
+router.route('/documents/').get(authenticateJWT, documents);
+router.route('/documents/:DocCodePk').get(authenticateJWT, documentsByKey);
+router.route("/documents/insert").post(authenticateJWT, insertDocuments);
+router.route("/documents/update").post(authenticateJWT, updateDocuments);
+router.route("/documents/delete").delete(authenticateJWT, deleteDocuments);
+//faculties
+router.route('/faculties/').get(authenticateJWT, faculties);
+router.route('/faculties/:FacultyCodePk').get(authenticateJWT, facultiesByKey);
+router.route("/faculties/insert").post(authenticateJWT, insertfaculties);
+router.route("/faculties/update").post(authenticateJWT, updatefaculties);
+router.route("/faculties/delete").delete(authenticateJWT, deletefaculties);
 
-            req.user = user;
-            next();
-        });
-    } else {
-        res.sendStatus(401);
-    }
-}
-
-app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-    if (!(email && password)) {
-        return res.status(400).json({ "status": 0, "message": "All input is required" });
-    }
-    const usersRec = await users(email)
-    const user = {...usersRec[0]}
-    // console.log(user)
-    if (user.PASSWORD && (await bcrypt.compare(password, user.PASSWORD))) {
-        const accessToken = jwt.sign({ userId: user.USER_ID, email }, accessTokenSecret, { expiresIn: '2m' });
-        const refreshToken = jwt.sign({ userId: user.USER_ID, email }, refreshTokenSecret);
-        refreshTokens.push(refreshToken);
-        res.json({
-            accessToken,
-            refreshToken
-        });
-    } else {
-        // res.send('Username or password incorrect');
-        return res.status(401).json({ "status": 0, "message": "Username or password incorrect" });
-    }
-});
-
-app.post("/register", async (req, res) => {
-    try {
-        let Dt = req.body;
-        const { email, password, userId, fullName } = req.body;
-        if (!(email && password && userId && fullName)) {
-            return res.status(400).json({ "status": 0, "message": "All input is required" });
-        }
-        const userDbData = await users(Dt.email)
-        let UserDataObj = {...userDbData[0]}
-        // console.log("userData*** "+ userDbData[0])
-        if (UserDataObj.status==0) {
-            return res.status(409).json(UserDataObj);
-        }
-        if (UserDataObj.USER_ID) {
-            return res.status(409).json({ "status": 0, "message": "User Already Exist. Please Login" });
-        }
-       
-        encryptedPassword = await bcrypt.hash(password, 10);
-
-        let Insertst = `insert into users values (:email,:password,:user_id,:full_name )`;
-        let InsertstArg = [Dt.email, encryptedPassword, Dt.userId, Dt.fullName];
-        let insertUser = await executeOperationsDB(Insertst, InsertstArg)
-        const userData = await users(email)
-        if (await userData) {
-            return res.status(201).json({ "status": 1, "message": "User has been registered successfully" });
-        }
-
-    } catch (err) {
-        console.log(err);
-        return res.status(500).json({ "status": 0, "message": "internal server error" ,"error" : err.message});
-
-    }
-});
-
-app.post('/token', (req, res) => {
-    const { token } = req.body;
-
-    if (!token) {
-        // return res.sendStatus(401);
-        return res.status(201).json({ "status": 0, "message": "token is required" });
-    }
-
-    if (!refreshTokens.includes(token)) {
-        // return res.sendStatus(403);
-        return res.status(403).json({ "status": 0, "message": "invalid token" });
-
-    }
-
-    jwt.verify(token, refreshTokenSecret, (err, user) => {
-
-        if (err) {
-            // return res.sendStatus(403);
-            return res.status(403).json({ "status": 0, "message": "invalid token" });
-
-        }
-//{ userId: user.USER_ID, email }
-        const accessToken = jwt.sign({ userId: user.userId, email: user.email, }, accessTokenSecret, { expiresIn: '2m' });
-
-        res.json({
-            accessToken
-        });
-    });
-});
-
-app.post('/logout', (req, res) => {
-    const { token } = req.body;
-    let checkToken  = refreshTokens.find(t => t==token);
-    if(checkToken){
-         refreshTokens = refreshTokens.filter(t => t !== token);
-         return res.status(200).json({ "status": 1, "message": "Logout successful" });
-    }
-    return res.status(403).json({ "status": 0, "message": "invalid token" });
-
-});
-
-app.get("/welcome", authenticateJWT, (req, res) => {
-    const token = req.cookies;
-  
-    console.log("------- " + token)
-    res.status(200).send("Welcome 🙌 ");
-  });
-  
+app.use(express.static('static'));
+app.use('/', router);
 app.listen(7000, () => {
-    console.log('auth service started on port 7000');
+  console.log('all service started on port 7000');
 });
